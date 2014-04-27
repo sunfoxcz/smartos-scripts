@@ -26,15 +26,25 @@ if [ ! $FS ]; then
 fi
 
 if [ $1 == "offline" ]; then
-	zfs snapshot $FS@today
-	zfs send -p -R $FS@today | ssh $3 zfs recv $FS
+	STATE=`vmadm get $2 | json state`
+	if [ $STATE = "running" ]; then
+		vmadm stop $2
+	fi
+
+	ORIGIN=`zfs get -H origin $FS|awk '{print $3}'`
+	if [ $ORIGIN != "-" ]; then
+		zfs promote $FS
+	fi
+
+	zfs snapshot $FS@migrate
+	zfs send -Rpv $FS@migrate | ssh $3 zfs recv $FS
 	zfs snapshot zones/cores/$2@migrate
 	zfs send -p zones/cores/$2@migrate | ssh $3 zfs recv zones/cores/$2
 
 	if [ $BRAND = "kvm" ]; then
 		for d in `vmadm get $2 | json disks | json -a zfs_filesystem`; do
-			zfs snapshot $d@today
-			zfs send -p -R $d@today | ssh $3 zfs recv $d
+			zfs snapshot $d@migrate
+			zfs send -p -R $d@migrate | ssh $3 zfs recv $d
 		done
 	fi
 
@@ -42,28 +52,27 @@ if [ $1 == "offline" ]; then
 	ssh $3 "echo '$2:installed:/$FS:$2' >> /etc/zones/index"
 	ssh $3 vmadm start $2
 
-	zfs destroy $FS@today
-	zfs destroy zones/cores/$2@today
-	ssh $3 zfs destroy $FS@today
-	ssh $3 zfs destroy zones/cores/$2@today
+	zfs destroy $FS@migrate
+	zfs destroy zones/cores/$2@migrate
+	ssh $3 zfs destroy $FS@migrate
+	ssh $3 zfs destroy zones/cores/$2@migrate
 
 	if [ $BRAND = "kvm" ]; then
 		for d in `vmadm get $2 | json disks | json -a zfs_filesystem`; do
-			zfs destroy $d@today
-			ssh $3 zfs destroy $d@today
+			zfs destroy $d@migrate
+			ssh $3 zfs destroy $d@migrate
 		done
 	fi
 fi
 
 if [ $1 == "prepare" ]; then
-	#ORIGIN=`zfs get -H origin $FS|awk '{print $3}'`
-	#ORIGIN_BASE=${ORIGIN/@*/}
-	#if [ $ORIGIN ]; then
-	#	zfs send -R $ORIGIN | ssh $3 zfs recv $ORIGIN_BASE
-	#fi
+	ORIGIN=`zfs get -H origin $FS|awk '{print $3}'`
+	if [ $ORIGIN != "-" ]; then
+		zfs promote $FS
+	fi
 
 	zfs snapshot $FS@today
-	zfs send -p -R $FS@today | ssh $3 zfs recv $FS
+	zfs send -Rpv $FS@today | ssh $3 zfs recv $FS
 
 	if [ $BRAND = "kvm" ]; then
 		for d in `vmadm get $2 | json disks | json -a zfs_filesystem`; do
