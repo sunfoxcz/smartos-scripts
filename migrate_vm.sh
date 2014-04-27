@@ -26,11 +26,10 @@ if [ ! $FS ]; then
 fi
 
 if [ $1 == "prepare" ]; then
-	#ORIGIN=`zfs get -H origin $FS|awk '{print $3}'`
-	#ORIGIN_BASE=${ORIGIN/@*/}
-	#if [ $ORIGIN ]; then
-	#	zfs send -R $ORIGIN | ssh $3 zfs recv $ORIGIN_BASE
-	#fi
+	ORIGIN=`zfs get -H origin $FS|awk '{print $3}'`
+	if [ $ORIGIN != "-" ]; then
+		zfs promote $FS
+	fi
 
 	zfs snapshot $FS@today
 	zfs send -p -R $FS@today | ssh $3 zfs recv $FS
