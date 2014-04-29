@@ -44,7 +44,7 @@ if [ $1 == "offline" ]; then
 	if [ $BRAND = "kvm" ]; then
 		for d in `vmadm get $2 | json disks | json -a zfs_filesystem`; do
 			zfs snapshot $d@migrate
-			zfs send -p -R $d@migrate | ssh $3 zfs recv $d
+			zfs send -Rpv $d@migrate | ssh $3 zfs recv $d
 		done
 	fi
 
@@ -77,7 +77,7 @@ if [ $1 == "prepare" ]; then
 	if [ $BRAND = "kvm" ]; then
 		for d in `vmadm get $2 | json disks | json -a zfs_filesystem`; do
 			zfs snapshot $d@today
-			zfs send -p -R $d@today | ssh $3 zfs recv $d
+			zfs send -Rpv $d@today | ssh $3 zfs recv $d
 		done
 	fi
 fi
