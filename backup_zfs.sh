@@ -5,7 +5,7 @@ ZONES=`zfs list -H -o name | grep "^zones\/[0-9a-f]\{8\}-[0-9a-f]\{4\}-[0-9a-f]\
 IMAGES=`imgadm list -H -o uuid`
 
 today=`date +%Y-%m-%d`
-old=`TZ=GMT+71 date +%Y-%m-%d`
+old=`TZ=GMT+119 date +%Y-%m-%d`
 
 for z in $ZONES; do
     if [[ ! $IMAGES =~ $z ]]; then
