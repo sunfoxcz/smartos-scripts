@@ -13,6 +13,8 @@ if [ ! $3 ]; then
 	exit 1
 fi
 
+ssh $3 hostname > /dev/null
+
 BRAND=`vmadm get $2 | json brand`
 if [ ! $BRAND ]; then
 	echo "VM $2 does not exists"
