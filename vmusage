@@ -1,0 +1,38 @@
+#!/bin/bash
+
+total_cpu_cap=0
+total_cpu_shares=0
+total_ram=0
+total_disk=0
+
+printf "%-37s %-18s %-3s %s %s %s %7s %9s\n" UUID ALIAS TYPE VCPU CPU_CAP CPU_SHARES RAM DISK_USED
+printf "%.0s-" {1..103}
+printf "\n"
+
+for vm in $(vmadm list -p -o uuid,alias,type,cpu_cap,cpu_shares,ram,vcpus -s -ram)
+do
+    read uuid alias type cpu_cap cpu_shares ram vcpus <<<$(IFS=":"; echo $vm)
+
+    ram=$(bc <<<"scale=1; $ram / 1024")
+
+    disk=0
+    for vol in $(zfs list -Hp -o name,used | grep zones/$uuid | awk '{print $2}')
+    do
+        let "disk = $disk + $vol"
+    done
+    disk=$(bc <<<"scale=2; $disk / 1024 / 1024 / 1024")
+    disk=$(echo $disk | sed 's/\./,/')
+    disk=$(printf "%.1f" $disk)
+    disk=$(echo $disk | sed 's/,/\./')
+
+    total_cpu_cap=$(bc <<<"scale=0; $total_cpu_cap + $cpu_cap")
+    total_cpu_shares=$(bc <<<"scale=0; $total_cpu_shares + $cpu_shares")
+    total_ram=$(bc <<<"scale=1; $total_ram + $ram")
+    total_disk=$(bc <<<"scale=1; $total_disk + $disk")
+
+    printf "%s  %-18s %-3s %5s %7s %10s %6sG %8sG\n" $uuid $alias $type "$vcpus" $cpu_cap $cpu_shares $ram $disk
+done
+
+printf "%.0s-" {1..103}
+printf "\n"
+printf "TOTAL %68s %10s %6sG %8sG\n" $total_cpu_cap $total_cpu_shares $total_ram $total_disk
