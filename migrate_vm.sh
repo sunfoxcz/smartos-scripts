@@ -13,7 +13,6 @@ if [ ! $3 ]; then
 	exit 1
 fi
 
-
 VMID=$1
 DESTINATION=$2
 OPERATION=$3
@@ -37,6 +36,7 @@ vm_copy_config() {
 	# $1: DESTINATION
 	# $2: VMID
 	# $3: FS
+	echo "Copying VM config"
 	ssh $1 ls /etc/zones/$2.xml > /dev/null 2>&1
 	if [ $? = "0" ]; then
 		ssh $1 rm /etc/zones/$2.xml
@@ -51,6 +51,7 @@ zfs_promote_fs() {
 	# $1: FS
 	ORIGIN=`zfs get -H origin $1 | awk '{print $3}'`
 	if [ $ORIGIN != "-" ]; then
+		echo "Promoting FS above $ORIGIN"
 		zfs promote $1
 	fi
 }
@@ -58,6 +59,7 @@ zfs_promote_fs() {
 zfs_create_migrate_snapshot() {
 	# $1: FS
 	# $2: SNAPSHOT NAME
+	echo "Creating snapshot $1@$2"
 	SNAPSHOT=`zfs list -t snapshot -o name -H | grep ^$1@$2$`
 	if [[ $SNAPSHOT != "" ]]; then
 		zfs destroy $SNAPSHOT
@@ -69,6 +71,7 @@ zfs_destroy_migrate_snapshots() {
 	# $1: DESTINATION
 	# $2: FS
 	# $3: SNAPSHOT NAME
+	echo "Removing snapshot $2@$3"
 	zfs destroy -r $2@$3
 	ssh $1 zfs destroy -r $2@$3
 }
@@ -93,6 +96,7 @@ zfs_send_full() {
 	#     named snapshot.
 	# -p: Include the dataset's properties in the stream.
 	# -v: Print verbose information about the stream package generated.
+	echo "Sending $2@$3 to $1"
 	zfs send -Rp $2@$3 | ssh $1 zfs recv $2
 }
 
@@ -105,7 +109,8 @@ zfs_send_increment() {
 	# -p: Include the dataset's properties in the stream.
 	# -I: Generate a stream package that sends all intermediary snapshots
 	#     from the first snapshot to the second snapshot.
-	zfs send -p -I $2@$3 $2@$4 | ssh $1 zfs recv $2
+	echo "Sending $2@$3 increments tp $1"
+	zfs send -p -i $2@$3 $2@$4 | ssh $1 zfs recv $2
 }
 
 BRAND=`vmadm get $VMID | json brand`
@@ -120,15 +125,11 @@ if [ ! $FS ]; then
 	exit 1
 fi
 
+echo "VM: $VMID"
+echo "Brand: $BRAND"
+
 if [ $OPERATION = "offline" ]; then
 	vm_shutdown $VMID
-
-	zfs_promote_fs $FS
-	zfs_create_migrate_snapshot $FS "migrate"
-	zfs_create_migrate_snapshot "zones/cores/$VMID" "migrate"
-
-	zfs_send_full $VMID $FS "migrate"
-	zfs_send_full $VMID "zones/cores/$VMID" "migrate"
 
 	if [ $BRAND = "kvm" ]; then
 		for d in `vmadm get $VMID | json disks | json -a zfs_filesystem`; do
@@ -137,6 +138,13 @@ if [ $OPERATION = "offline" ]; then
 			zfs_send_full $DESTINATION $d "migrate"
 		done
 	fi
+
+	zfs_promote_fs $FS
+	zfs_create_migrate_snapshot $FS "migrate"
+	zfs_create_migrate_snapshot "zones/cores/$VMID" "migrate"
+
+	zfs_send_full $DESTINATION $FS "migrate"
+	zfs_send_full $DESTINATION "zones/cores/$VMID" "migrate"
 
 	vm_copy_config $DESTINATION $VMID $FS
 
@@ -151,27 +159,20 @@ if [ $OPERATION = "offline" ]; then
 fi
 
 if [ $OPERATION = "prepare" ]; then
-	zfs_promote_fs $FS
-
-	zfs_create_migrate_snapshot $FS "today"
-	zfs_send_full $DESTINATION $FS "today"
-
 	if [ $BRAND = "kvm" ]; then
 		for d in `vmadm get $VMID | json disks | json -a zfs_filesystem`; do
 			zfs_create_migrate_snapshot $d "today"
 			zfs_send_full $DESTINATION $d "today"
 		done
 	fi
+
+	zfs_promote_fs $FS
+	zfs_create_migrate_snapshot $FS "today"
+	zfs_send_full $DESTINATION $FS "today"
 fi
 
 if [ $OPERATION = "migrate" ]; then
 	vm_shutdown $VMID
-
-	zfs_create_migrate_snapshot $FS "migrate"
-	zfs_create_migrate_snapshot "zones/cores/$VMID" "migrate"
-
-	zfs_send_increment $DESTINATION $FS "today" "migrate"
-	zfs_send_full $DESTINATION "zones/cores/$VMID" "migrate"
 
 	if [ $BRAND = "kvm" ]; then
 		for d in `vmadm get $VMID | json disks | json -a zfs_filesystem`; do
@@ -179,6 +180,12 @@ if [ $OPERATION = "migrate" ]; then
 			zfs_send_increment $DESTINATION $d "today" "migrate"
 		done
 	fi
+
+	zfs_create_migrate_snapshot $FS "migrate"
+	zfs_create_migrate_snapshot "zones/cores/$VMID" "migrate"
+
+	zfs_send_increment $DESTINATION $FS "today" "migrate"
+	zfs_send_full $DESTINATION "zones/cores/$VMID" "migrate"
 
 	vm_copy_config $DESTINATION $VMID $FS
 
