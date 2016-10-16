@@ -105,7 +105,7 @@ zfs_send_increment() {
 	# -p: Include the dataset's properties in the stream.
 	# -I: Generate a stream package that sends all intermediary snapshots
 	#     from the first snapshot to the second snapshot.
-	zfs send -p -i $2@$3 $2@$4 | ssh $1 zfs recv $2
+	zfs send -p -I $2@$3 $2@$4 | ssh $1 zfs recv $2
 }
 
 BRAND=`vmadm get $VMID | json brand`
