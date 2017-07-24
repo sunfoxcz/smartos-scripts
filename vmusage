@@ -1,5 +1,6 @@
 #!/bin/bash
 
+total_vcpu=0
 total_cpu_cap=0
 total_cpu_shares=0
 total_ram=0
@@ -25,6 +26,9 @@ do
     disk=$(printf "%.1f" $disk)
     disk=$(echo $disk | sed 's/,/\./')
 
+    if [ "$vcpus" != "" ]; then
+        total_vcpu=$(bc <<<"scale=0; $total_vcpu + $vcpus")
+    fi
     total_cpu_cap=$(bc <<<"scale=0; $total_cpu_cap + $cpu_cap")
     total_cpu_shares=$(bc <<<"scale=0; $total_cpu_shares + $cpu_shares")
     total_ram=$(bc <<<"scale=1; $total_ram + $ram")
@@ -35,4 +39,4 @@ done
 
 printf "%.0s-" {1..103}
 printf "\n"
-printf "TOTAL %68s %10s %6sG %8sG\n" $total_cpu_cap $total_cpu_shares $total_ram $total_disk
+printf "TOTAL %60s %7s %10s %6sG %8sG\n" $total_vcpu $total_cpu_cap $total_cpu_shares $total_ram $total_disk
