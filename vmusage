@@ -16,10 +16,11 @@ do
 
     ram=$(bc <<<"scale=1; $ram / 1024")
 
-    disk=0
-    for vol in $(zfs list -Hp -o name,used | grep zones/$uuid | awk '{print $2}')
+    disk=$(zfs get -Hp -o value used zones/$uuid)
+    for vol in $(vmadm get $uuid | json disks | json -a zfs_filesystem)
     do
-        let "disk = $disk + $vol"
+        volsize=$(zfs get -Hp -o value used $vol)
+        let "disk = $disk + $volsize"
     done
     disk=$(bc <<<"scale=2; $disk / 1024 / 1024 / 1024")
     disk=$(echo $disk | sed 's/\./,/')
