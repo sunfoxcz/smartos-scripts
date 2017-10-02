@@ -109,7 +109,7 @@ zfs_send_increment() {
 	# -p: Include the dataset's properties in the stream.
 	# -I: Generate a stream package that sends all intermediary snapshots
 	#     from the first snapshot to the second snapshot.
-	echo "Sending $2@$3 increments tp $1"
+	echo "Sending $2@$3 increments to $1"
 	zfs send -p -i $2@$3 $2@$4 | ssh $1 zfs recv $2
 }
 
