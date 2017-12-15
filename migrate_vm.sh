@@ -97,7 +97,7 @@ zfs_send_full() {
 	# -p: Include the dataset's properties in the stream.
 	# -v: Print verbose information about the stream package generated.
 	echo "Sending $2@$3 to $1"
-	zfs send -Rp $2@$3 | ssh $1 zfs recv $2
+	zfs send -Rp $2@$3 | mbuffer -q -s 128k -m 1G | pv -rtab | ssh $1 "/opt/local/bin/mbuffer -q -s 128k -m 1G | zfs recv $2"
 }
 
 zfs_send_increment() {
@@ -110,7 +110,7 @@ zfs_send_increment() {
 	# -I: Generate a stream package that sends all intermediary snapshots
 	#     from the first snapshot to the second snapshot.
 	echo "Sending $2@$3 increments to $1"
-	zfs send -p -i $2@$3 $2@$4 | ssh $1 zfs recv $2
+	zfs send -p -i $2@$3 $2@$4 | mbuffer -q -s 128k -m 1G | pv -rtab | ssh $1 "/opt/local/bin/mbuffer -q -s 128k -m 1G | zfs recv $2"
 }
 
 BRAND=`vmadm get $VMID | json brand`
