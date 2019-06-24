@@ -1,31 +1,141 @@
 #!/bin/bash
 
-host=https://us-east.manta.joyent.com
-latest_path=$(curl -sk "$host/Joyent_Dev/public/SmartOS/latest")
-version="${latest_path##*/}"
-platform_file="platform-$version.tgz"
-platform_dir="platform-$version"
-platform_url="$host$latest_path/$platform_file"
-md5sums_url="$host$latest_path/md5sums.txt"
+# https://github.com/calmh/smartos-platform-upgrade
+# Copyright (c) 2012-2016 Jakob Borg & Contributors
+# Distributed under the MIT License
 
-force=false
-while getopts 'f' option; do
-	case "$option" in
-		f) force=true;;
-	esac
+# us-east.manta.joyent.com currently uses a wildcard certificate based on the
+# Thawte Primary Root CA.
+# SHA-1=91:C6:D6:EE:3E:8A:C8:63:84:E5:48:C2:99:29:5C:75:6C:81:7B:81
+# SHA-256=8D:72:2F:81:A9:C1:13:C0:79:1D:F1:36:A2:96:6D:B2:6C:95:0A:97:1D:B4:6B:41:99:F4:EA:54:B7:8B:FB:9F
+cert_file=$(mktemp)
+function cleanup {
+        rm "$cert_file"
+}
+trap cleanup EXIT
+cat >"$cert_file" <<EOF
+-----BEGIN CERTIFICATE-----
+MIIEIDCCAwigAwIBAgIQNE7VVyDV7exJ9C/ON9srbTANBgkqhkiG9w0BAQUFADCB
+qTELMAkGA1UEBhMCVVMxFTATBgNVBAoTDHRoYXd0ZSwgSW5jLjEoMCYGA1UECxMf
+Q2VydGlmaWNhdGlvbiBTZXJ2aWNlcyBEaXZpc2lvbjE4MDYGA1UECxMvKGMpIDIw
+MDYgdGhhd3RlLCBJbmMuIC0gRm9yIGF1dGhvcml6ZWQgdXNlIG9ubHkxHzAdBgNV
+BAMTFnRoYXd0ZSBQcmltYXJ5IFJvb3QgQ0EwHhcNMDYxMTE3MDAwMDAwWhcNMzYw
+NzE2MjM1OTU5WjCBqTELMAkGA1UEBhMCVVMxFTATBgNVBAoTDHRoYXd0ZSwgSW5j
+LjEoMCYGA1UECxMfQ2VydGlmaWNhdGlvbiBTZXJ2aWNlcyBEaXZpc2lvbjE4MDYG
+A1UECxMvKGMpIDIwMDYgdGhhd3RlLCBJbmMuIC0gRm9yIGF1dGhvcml6ZWQgdXNl
+IG9ubHkxHzAdBgNVBAMTFnRoYXd0ZSBQcmltYXJ5IFJvb3QgQ0EwggEiMA0GCSqG
+SIb3DQEBAQUAA4IBDwAwggEKAoIBAQCsoPD7gFnUnMekz52hWXMJEEUMDSxuaPFs
+W0hoSVk3/AszGcJ3f8wQLZU0HObrTQmnHNK4yZc2AreJ1CRfBsDMRJSUjQJib+ta
+3RGNKJpchJAQeg29dGYvajig4tVUROsdB58Hum/u6f1OCyn1PoSgAfGcq/gcfomk
+6KHYcWUNo1F77rzSImANuVud37r8UVsLr5iy6S7pBOhih94ryNdOwUxkHt3Ph1i6
+Sk/KaAcdHJ1KxtUvkcx8cXIcxcBn6zL9yZJclNqFwJu/U30rCfSMnZEfl2pSy94J
+NqR32HuHUETVPm4pafs5SSYeCaWAe0At6+gnhcn+Yf1+5nyXHdWdAgMBAAGjQjBA
+MA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBR7W0XP
+r87Lev0xkhpqtvNG61dIUDANBgkqhkiG9w0BAQUFAAOCAQEAeRHAS7ORtvzw6WfU
+DW5FvlXok9LOAz/t2iWwHVfLHjp2oEzsUHboZHIMpKnxuIvW1oeEuzLlQRHAd9mz
+YJ3rG9XRbkREqaYB7FViHXe4XI5ISXycO1cRrK1zN44veFyQaEfZYGDm/Ac9IiAX
+xPcW6cTYcvnIc3zfFi8VqT79aie2oetaupgf1eNNZAqdE8hhuvU5HIe6uL17In/2
+/qxAeeWsEG89jxt5dovEN7MhGITlNgDrYyCZuen+MwS7QcjBAvlEYyCegc5C09Y/
+LHbTY5xZ3Y+m4Q6gLkH3LpVHz7z9M/P2C2F+fpErgUfCJzDupxBdN49cOSvkBPB7
+jVaMaA==
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh
+MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
+d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD
+QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT
+MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j
+b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhEXLeqKTTo1eqUKKPC3eQyaKl7hLOllsB
+CSDMAZOnTjC3U/dDxGkAV53ijSLdhwZAAIEJzs4bg7/fzTtxRuLWZscFs3YnFo97
+nh6Vfe63SKMI2tavegw5BmV/Sl0fvBf4q77uKNd0f3p4mVmFaG5cIzJLv07A6Fpt
+43C/dxC//AH2hdmoRBBYMql1GNXRor5H4idq9Joz+EkIYIvUX7Q6hL+hqkpMfT7P
+T19sdl6gSzeRntwi5m3OFBqOasv+zbMUZBfHWymeMr/y7vrTC0LUq7dBMtoM1O/4
+gdW7jVg/tRvoSSiicNoxBN33shbyTApOB6jtSj1etX+jkMOvJwIDAQABo2MwYTAO
+BgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUA95QNVbR
+TLtm8KPiGxvDl7I90VUwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUw
+DQYJKoZIhvcNAQEFBQADggEBAMucN6pIExIK+t1EnE9SsPTfrgT1eXkIoyQY/Esr
+hMAtudXH/vTBH1jLuG2cenTnmCmrEbXjcKChzUyImZOMkXDiqw8cvpOp/2PV5Adg
+06O/nVsJ8dWO41P0jmP6P6fbtGbfYmbW0W5BjfIttep3Sp+dWOIrWcBAI+0tKIJF
+PnlUkiaY4IBIqDfv8NZ5YBberOgOzW6sRBc4L0na4UU+Krk2U886UAb3LujEV0ls
+YSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk
+CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=
+-----END CERTIFICATE-----
+EOF
+
+function _curl {
+        curl -s --cacert "$cert_file" $@
+}
+function usage() {
+    cat <<- "USAGE"
+$ platform-upgrade [-u URL -s MD5SUM_URL] [-f]
+
+OPTIONS:
+  -u URL        : Remote/local url of platform-version.tgz file
+  -s MD5SUM_URL : Remote/local url of md5 checksum file
+  -f            : Force installation if version is already present
+
+EXAMPLE:
+  # Use default Joyent URL for latest platform image
+  platform-upgrade
+  # Use local platform and checksum file
+  platform-upgrade -u file:///tmp/platform-20180510T153535Z.tgz -s file:///tmp/md5sum.txt
+USAGE
+}
+
+force="false"
+while getopts :fu:s: option; do
+    case "$option" in
+        u)
+            platform_url="$OPTARG"
+            ;;
+        s)
+            md5sums_url="$OPTARG"
+            ;;
+        f)
+            force="true"
+            ;;
+        \?)
+            usage
+            exit -1
+            ;;
+    esac
 done
+shift $((OPTIND-1))
+
+if [[ -n $platform_url ]] && [[ ! -n $md5sums_url ]]; then
+	usage
+	exit -1
+fi
+
+if [[ ! -n $platform_url ]]; then
+    host=https://us-east.manta.joyent.com
+    latest_path="${host}$(_curl "$host/Joyent_Dev/public/SmartOS/latest")"
+    version="$(expr "$latest_path" : '.*\([0-9]\{8\}T[0-9]\{6\}Z\).*')"
+    latest_spec_path="$(_curl "$host/Joyent_Dev/public/SmartOS/$version")"
+    header="$(expr "$latest_spec_path" : '.*platform-release-\([0-9]\{8\}\)-.*')"
+    platform_url="$latest_path/platform-release-$header-$version.tgz"
+    if [[ ! -n $md5sums_url ]]; then
+        md5sums_url="$latest_path/md5sums.txt"
+    fi
+else
+    version="$(expr "$platform_url" : '.*\([0-9]\{8\}T[0-9]\{6\}Z\).*')"
+fi
+
+platform_file="platform-release-$header-$version.tgz"
+platform_dir="platform-$version"
 
 IFS=_ read brand kernel < <(uname -v)
 if [[ $kernel == $version ]]; then
-	echo "already on latest version: $kernel"
-	$force || exit -1
+    echo "Already on latest version ($kernel)."
+    $force || exit -1
 fi
 
 tmp=$(mktemp -d)
 cd "$tmp" || exit -1
 
 echo -n "Downloading latest platform ($platform_file)..."
-if ! curl -sk -o "$platform_file" "$platform_url" ; then
+if ! _curl -o "$platform_file" "$platform_url" ; then
         echo " failed"
         exit -1
 else
@@ -33,7 +143,7 @@ else
 fi
 
 echo -n "Verifying checksum..."
-curl -sk "$md5sums_url" \
+_curl "$md5sums_url" \
         | grep "$platform_file" \
         | awk '{print $1}' > expected.md5
 openssl md5 "$platform_file" | awk '{print $2}' > actual.md5
@@ -62,15 +172,37 @@ fi
 
 echo -n "Checking current boot device..."
 if [[ -z $1 ]] ; then
-        removables=($(disklist -r))
+        removables=($(diskinfo -cH | \
+                      awk 'BEGIN { FS="\t" } $7~/\?\?R./ { print $2 }'))
         echo -n " detected ${removables[@]}"
-        if [[ ${#removables[@]} -gt 1 ]]; then
-                  echo
-                  echo "Error: more than one removable device detected."
-                  echo "Specify correct device on the command line."
-                  exit -1
+        if [[ ${#removables[@]} -eq 0 ]]; then
+                echo
+                echo "Error: Unable to detect removable device."
+                diskinfo
+                echo "Specify correct device on the command line."
+                exit -1
+        elif [[ ${#removables[@]} -gt 1 ]]; then
+                echo
+                echo "Error: more than one removable device detected."
+                diskinfo -cH | awk 'BEGIN { FS="\t" } $7~/\?\?R./ { print }'
+                echo "Specify correct device on the command line."
+                exit -1
         fi
-        usb="/dev/dsk/${removables[0]}p1"
+        # Look for a GPT/EFI VTOC; if there isn't one, then this is almost
+        # certainly an MBR-partitioned device. If it's a GPT label, then we
+        # want the slice that's of type 2 (ROOT).
+        if [[ -e "/dev/dsk/${removables[0]}" ]]; then
+                partition=$(/usr/sbin/prtvtoc -h "/dev/dsk/${removables[0]}" | \
+                            awk ' $2 == 2 { print $1 }')
+                if [[ $? -eq 0 && -n "$partition" ]]; then
+                        echo -n ", GPT label"
+                        usb="/dev/dsk/${removables[0]}s${partition}"
+                fi
+        fi
+        if [[ -z "$usb" ]]; then
+                echo -n ", MBR label"
+                usb="/dev/dsk/${removables[0]}p1"
+        fi
 else
         usb="$1"
         echo -n " using $usb"
@@ -93,7 +225,7 @@ else
 fi
 
 echo -n "Updating platform on boot device..."
-if ! rsync -a "$platform_dir/" usb/platform.new/ ; then
+if ! rsync -rltD "$platform_dir/" usb/platform.new/ ; then
         echo " failed"
         exit -1
 else
