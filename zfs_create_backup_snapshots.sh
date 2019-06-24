@@ -13,6 +13,5 @@ for zone in $ZONES; do
             $ZFSNAP snapshot -a 1d -z zones/$zone
         fi
         $ZFSNAP destroy zones/$zone
-        #zfs send zones/$z@$today | gzip -9 > /zones/backup/$z.$today.gz
     fi
 done
