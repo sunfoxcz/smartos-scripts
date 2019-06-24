@@ -43,7 +43,8 @@ vm_copy_config() {
 		scp /etc/zones/$2.xml $1:/etc/zones/ > /dev/null
 	else
 		scp /etc/zones/$2.xml $1:/etc/zones/ > /dev/null
-		ssh $1 "echo '$2:installed:/$3:$2' >> /etc/zones/index"
+		index=`cat /etc/zones/index | grep ^$2`
+		ssh $1 "echo '$index' >> /etc/zones/index"
 	fi
 }
 
