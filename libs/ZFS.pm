@@ -16,6 +16,7 @@ our @EXPORT_OK   = qw(
     getAllSnaps
     getLastSnap
     getLastSequence
+    getRemoteSpace
     createMigrateSnapshot
     sendFull
     sendIncrement
@@ -91,6 +92,14 @@ sub getLastSequence {
     return $sequence;
 }
 
+# Get space available on remote machine
+sub getRemoteSpace {
+    my ($server) = @_;
+    my $space = `ssh $server zfs get -Ho value available zones`;
+    chomp $space;
+    return $space;
+}
+
 sub createMigrateSnapshot {
     my ($fs, $snapshotName) = @_;
     my $snapshot = "$fs\@$snapshotName";
@@ -151,6 +160,24 @@ sub sendIncrement {
     print " \e[92m*\e[m sending \e[35m$source\e[m increments ($snapshot_size)\n";
     system("zfs send -pi $source $target | $mbuffer | $pv | ssh $server \"$mbuffer | zfs recv $fs\"") and do {
         print " \e[31m* Error\e[m: can't send \e[35m$source\e[m, aborting\n";
+        exit 1;
+    };
+}
+
+sub renameDataset {
+    my ($oldName, $newName) = @_;
+    print " \e[92m*\e[m ranaming snapshot \e[35m$oldName\e[m to \e[35m$newName\e[m\n";
+    system("zfs rename $oldName $newName") and do {
+        print " \e[31m* Error\e[m: can't rename dataset \e[35m$oldName\e[m, aborting\n";
+        exit 1;
+    };
+}
+
+sub renameRemoteDataset {
+    my ($server, $oldName, $newName) = @_;
+    print " \e[92m*\e[m ranaming remote snapshot \e[35m$oldName\e[m to \e[35m$newName\e[m\n";
+    system("ssh $server zfs rename $oldName $newName") and do {
+        print " \e[31m* Error\e[m: can't rename remote dataset \e[35m$oldName\e[m, aborting\n";
         exit 1;
     };
 }

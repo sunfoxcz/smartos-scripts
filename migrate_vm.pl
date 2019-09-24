@@ -21,10 +21,10 @@ my $force = 0;
 
 GetOptions(
     "force|f" => \$force,
-) or pod2usage(-exit => 1, -message => "Usage: $0 <vmid> <destination> <prepare|migrate|offline|cleanup> [--force|-f]");
+) or pod2usage(-exit => 1, -message => "Usage: $0 <vmid> <destination> <prepare|reprepare|migrate|offline|cleanup> [--force|-f]");
 
 if (scalar(@ARGV) lt 3) {
-    pod2usage(-exit => 1, -message => "Usage: $0 <vmid> <destination> <prepare|migrate|offline|cleanup> [--force|-f]");
+    pod2usage(-exit => 1, -message => "Usage: $0 <vmid> <destination> <prepare|reprepare|migrate|offline|cleanup> [--force|-f]");
 }
 
 my ($vmid, $destination, $operation) = @ARGV;
@@ -80,8 +80,9 @@ if (!ZFS::checkDatasetExists($rootFs)) {
 
 if ($operation eq 'prepare') {
     print "\n\e[34mChecking target machine\e[m\n";
-
     testSsh($destination);
+    my $remoteSpace = ZFS::getRemoteSpace($destination);
+    print " \e[92m*\e[m Free space: $remoteSpace\n";
 
     my $remoteVmData = VM::getRemoteData($destination, $uuid);
     if ($remoteVmData and !$force) {
@@ -94,12 +95,13 @@ if ($operation eq 'prepare') {
         }
     }
 
+    print "\n\e[34mSearching for datasets\e[m\n";
     my @datasets = VM::parseDatasets($vmData);
 
     for my $dataset (@datasets) {
         my $origin = ZFS::getOrigin($dataset);
         if ($origin) {
-            print " \e[92m*\e[m dataset \e[35m$dataset\e[m is clone of \e[35m$origin\e[m\n";
+            print " \e[92m*\e[m \e[35m$dataset\e[m clone of \e[35m$origin\e[m\n";
             if (!ZFS::checkRemoteDatasetExists($destination, $origin)) {
                 my $image = VM::parseImageNameFromDataset($origin);
                 if (VM::checkRemoteImageAvailable($destination, $image)) {
@@ -110,16 +112,18 @@ if ($operation eq 'prepare') {
                     exit 1;
                 }
             }
+        } else {
+            print " \e[92m*\e[m \e[35m$dataset\e[m\n";
         }
     }
 
     for my $dataset (@datasets) {
         if (ZFS::checkRemoteDatasetExists($destination, $dataset)) {
             if ($force) {
-                print " \e[92m*\e[m dataset $dataset exists, forcing removal\n";
+                print " \e[92m*\e[m remote dataset $dataset exists, forcing removal\n";
                 ZFS::destroyRemoteDataset($destination, $dataset);
             } else {
-                print " \e[31m* Error\e[m: dataset $dataset exists, aborting\n";
+                print " \e[31m* Error\e[m: remote dataset $dataset exists, aborting\n";
                 exit 1;
             }
         }
@@ -133,6 +137,64 @@ if ($operation eq 'prepare') {
     print "\n\e[34mSending datasets to\e[m $destination\n";
     for my $dataset (@datasets) {
         ZFS::sendFull($destination, $dataset, 'today');
+    }
+}
+
+if ($operation eq 'reprepare') {
+    print "\n\e[34mChecking target machine\e[m\n";
+    testSsh($destination);
+    my $remoteSpace = ZFS::getRemoteSpace($destination);
+    print " \e[92m*\e[m Free space: $remoteSpace\n";
+
+    print "\n\e[34mSearching for datasets\e[m\n";
+    my @datasets = VM::parseDatasets($vmData);
+
+    for my $dataset (@datasets) {
+        print " \e[92m*\e[m \e[35m$dataset\e[m\n";
+        if (!ZFS::checkDatasetExists("$dataset\@today")) {
+            print " \e[31m* Error\e[m: dataset $dataset\@today doesn't exist, aborting\n";
+            exit 1;
+        }
+        if (!ZFS::checkRemoteDatasetExists($destination, "$dataset\@today")) {
+            print " \e[31m* Error\e[m: remote dataset $dataset\@today doesn't exist, aborting\n";
+            exit 1;
+        }
+        if (ZFS::checkDatasetExists("$dataset\@today2")) {
+            if ($force) {
+                print " \e[92m*\e[m dataset $dataset\@today2 exists, forcing removal\n";
+                ZFS::destroyRemoteDataset($destination, $dataset);
+            } else {
+                print " \e[31m* Error\e[m: dataset $dataset\@today2 exists, aborting\n";
+                exit 1;
+            }
+        }
+        if (ZFS::checkRemoteDatasetExists($destination, "$dataset\@today2")) {
+            if ($force) {
+                print " \e[92m*\e[m remote dataset $dataset\@today2 exists, forcing removal\n";
+                ZFS::destroyRemoteDataset($destination, $dataset);
+            } else {
+                print " \e[31m* Error\e[m: remote dataset $dataset\@today2 exists, aborting\n";
+                exit 1;
+            }
+        }
+    }
+
+    print "\n\e[34mCreating snapshots\e[m\n";
+    for my $dataset (@datasets) {
+        ZFS::createMigrateSnapshot($dataset, 'today2');
+    }
+
+    print "\n\e[34mSending datasets to\e[m $destination\n";
+    for my $dataset (@datasets) {
+        ZFS::sendIncrement($destination, $dataset, 'today', 'today2');
+    }
+
+    print "\n\e[34mRenaming datasets\n";
+    for my $dataset (@datasets) {
+        ZFS::destroyDataset("$dataset\@today");
+        ZFS::destroyRemoteDataset($destination, "$dataset\@today");
+        ZFS::renameDataset("$dataset\@today2", "$dataset\@today");
+        ZFS::renameRemoteDataset($destination, "$dataset\@today2", "$dataset\@today");
     }
 }
 
