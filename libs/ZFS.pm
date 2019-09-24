@@ -13,13 +13,11 @@ our @EXPORT_OK   = qw(
     checkDatasetExists
     checkRemoteDatasetExists
     getOrigin
-    getRemoteReceiveResumeToken
     getAllSnaps
     getLastSnap
     getLastSequence
     createMigrateSnapshot
     sendFull
-    sendResumeFull
     sendIncrement
     destroyMigrateSnapshot
     destroyDataset
@@ -52,13 +50,6 @@ sub getOrigin {
     my $origin = `zfs get -Ho value origin $fs`;
     $origin =~ s/\s+$//;
     return $origin eq '-' ? '' : $origin;
-}
-
-sub getRemoteReceiveResumeToken {
-    my ($server, $fs) = @_;
-    my $receiveResumeToken = `ssh $server zfs get -Ho value receive_resume_token $fs 2>/dev/null`;
-    $receiveResumeToken =~ s/\s+$//;
-    return $receiveResumeToken eq '-' ? '' : $receiveResumeToken;
 }
 
 sub getAllSnaps {
@@ -136,25 +127,8 @@ sub sendFull {
     # -p: include the dataset's properties in the stream (implicit for -R)
     # -e: generate a more compact stream by using WRITE_EMBEDDED records
     # -c: generate a more compact stream by using compressed WRITE records
-    # ZFS RECEIVE
-    # -s: if the receive is interrupted, save the partially received state
     print " \e[92m*\e[m sending \e[35m$snapshot\e[m ($dataset_size)\n";
-    system("zfs send -Rpec $snapshot | $mbuffer | $pv | ssh $server \"$mbuffer | zfs recv -s $fs\"") and do {
-        print " \e[31m* Error\e[m: can't send \e[35m$snapshot\e[m, aborting\n";
-        exit 1;
-    };
-}
-
-sub sendResumeFull {
-    my ($server, $fs, $snapshotName, $token) = @_;
-    my $snapshot = "$fs\@$snapshotName";
-
-    # ZFS SEND
-    # -t: value of the receive_resume_token
-    # ZFS RECEIVE
-    # -s: if the receive is interrupted, save the partially received state
-    print " \e[92m*\e[m resuming \e[35m$snapshot\e[m\n";
-    system("zfs send -t $token | $mbuffer | $pv | ssh $server \"$mbuffer | zfs recv -s $fs\"") and do {
+    system("zfs send -Rpec $snapshot | $mbuffer | $pv | ssh $server \"$mbuffer | zfs recv $fs\"") and do {
         print " \e[31m* Error\e[m: can't send \e[35m$snapshot\e[m, aborting\n";
         exit 1;
     };
@@ -173,8 +147,7 @@ sub sendIncrement {
     };
 
     # -p: include the dataset's properties in the stream.
-    # -I: generate a stream package that sends all intermediary snapshots
-    #     from the first snapshot to the second snapshot
+    # -i: generate an incremental stream from the first snapshot to the second snapshot
     print " \e[92m*\e[m sending \e[35m$source\e[m increments ($snapshot_size)\n";
     system("zfs send -pi $source $target | $mbuffer | $pv | ssh $server \"$mbuffer | zfs recv $fs\"") and do {
         print " \e[31m* Error\e[m: can't send \e[35m$source\e[m, aborting\n";

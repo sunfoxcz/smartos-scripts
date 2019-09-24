@@ -18,15 +18,13 @@ use ZFS;
 # ----------------------------------------------------------------------------------------------------------------------
 
 my $force = 0;
-my $resume = 0;
 
 GetOptions(
     "force|f" => \$force,
-    "resume|r" => \$resume,
-) or pod2usage(-exit => 1, -message => "Usage: $0 <vmid> <destination> <prepare|migrate|offline|cleanup> [--force|-f] [--resume|-r]");
+) or pod2usage(-exit => 1, -message => "Usage: $0 <vmid> <destination> <prepare|migrate|offline|cleanup> [--force|-f]");
 
 if (scalar(@ARGV) lt 3) {
-    pod2usage(-exit => 1, -message => "Usage: $0 <vmid> <destination> <prepare|migrate|offline|cleanup> [--force|-f]  [--resume|-r]");
+    pod2usage(-exit => 1, -message => "Usage: $0 <vmid> <destination> <prepare|migrate|offline|cleanup> [--force|-f]");
 }
 
 my ($vmid, $destination, $operation) = @ARGV;
@@ -115,15 +113,9 @@ if ($operation eq 'prepare') {
         }
     }
 
-    my %datasetTokens = ();
     for my $dataset (@datasets) {
         if (ZFS::checkRemoteDatasetExists($destination, $dataset)) {
-            if ($resume) {
-                $datasetTokens{$dataset} = ZFS::getRemoteReceiveResumeToken($destination, $dataset);
-                if ($datasetTokens{$dataset}) {
-                    print " \e[92m*\e[m found receive_resume_token for remote dataset $dataset\n";
-                }
-            } elsif ($force) {
+            if ($force) {
                 print " \e[92m*\e[m dataset $dataset exists, forcing removal\n";
                 ZFS::destroyRemoteDataset($destination, $dataset);
             } else {
@@ -133,22 +125,14 @@ if ($operation eq 'prepare') {
         }
     }
 
-    if (!$resume) {
-        print "\n\e[34mCreating snapshots\e[m\n";
-        for my $dataset (@datasets) {
-            ZFS::createMigrateSnapshot($dataset, 'today');
-        }
+    print "\n\e[34mCreating snapshots\e[m\n";
+    for my $dataset (@datasets) {
+        ZFS::createMigrateSnapshot($dataset, 'today');
     }
 
     print "\n\e[34mSending datasets to\e[m $destination\n";
     for my $dataset (@datasets) {
-        if ($resume and $datasetTokens{$dataset}) {
-            ZFS::sendResumeFull($destination, $dataset, 'today', $datasetTokens{$dataset});
-        } elsif ($resume and !ZFS::checkRemoteDatasetExists($destination, $dataset)) {
-            ZFS::sendFull($destination, $dataset, 'today');
-        } elsif (!$resume) {
-            ZFS::sendFull($destination, $dataset, 'today');
-        }
+        ZFS::sendFull($destination, $dataset, 'today');
     }
 }
 
