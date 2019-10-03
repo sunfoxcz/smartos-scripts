@@ -12,6 +12,8 @@ for zone in $ZONES; do
         else
             $ZFSNAP snapshot -a 1d -z zones/$zone
         fi
-        $ZFSNAP destroy zones/$zone
+        if [ "$(ps ax | grep [m]igrate_vm\.pl)" == "" ]; then
+            $ZFSNAP destroy zones/$zone
+        fi
     fi
 done
