@@ -9,7 +9,7 @@ use Time::Piece;
 use Time::Seconds;
 
 use FindBin qw($Bin);
-use lib "$Bin/libs";
+use lib "$Bin/../lib";
 use Terminal qw(colorize);
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -17,7 +17,6 @@ use Terminal qw(colorize);
 # ----------------------------------------------------------------------------------------------------------------------
 
 my $ZFS = '/usr/sbin/zfs';
-my $ZFSNAP = '/backup/scripts/zfsnap/sbin/zfsnap.sh';
 my $DATE_PATTERN = '^20[0-9][0-9]-[01][0-9]-[0-3][0-9]_[0-2][0-9]\.[0-5][0-9]\.[0-5][0-9]$';
 my $TTL_PATTERN = '^([0-9]{1})([wd]+)$';
 my $TIME_FORMAT = '%Y-%m-%d_%H.%M.%S';

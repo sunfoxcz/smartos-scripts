@@ -8,7 +8,7 @@ use Pod::Usage;
 use Sys::Hostname;
 
 use FindBin qw($Bin);
-use lib "$Bin/libs";
+use lib "$Bin/../lib";
 use Terminal qw(colorize);
 use VM;
 use ZFS;

@@ -7,7 +7,7 @@ use POSIX;
 use Time::Piece;
 
 use FindBin qw($Bin);
-use lib "$Bin/libs";
+use lib "$Bin/../lib";
 use Terminal qw(colorize);
 use ZFS;
 
