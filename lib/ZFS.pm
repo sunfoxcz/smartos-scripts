@@ -107,7 +107,7 @@ sub createMigrateSnapshot {
 
     system("zfs list -Ho name $snapshot >/dev/null 2>&1") or do {
         $exists = 1;
-        system("zfs destroy $snapshot") and do {
+        system("zfs destroy -r $snapshot") and do {
             print " \e[31m* Error\e[m: can't destroy earlier snapshot \e[35m$snapshot\e[m, aborting\n";
             exit 1;
         };
@@ -119,7 +119,7 @@ sub createMigrateSnapshot {
         print " \e[92m*\e[m creating snapshot \e[35m$snapshot\e[m\n";
     }
 
-    system("zfs snapshot $snapshot") and do {
+    system("zfs snapshot -r $snapshot") and do {
         print " \e[31m* Error\e[m: can't create snapshot \e[35m$snapshot\e[m, aborting\n";
         exit 1;
     };
