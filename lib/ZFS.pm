@@ -27,8 +27,9 @@ our @EXPORT_OK   = qw(
 our %EXPORT_TAGS = ('all' => \@EXPORT_OK);
 
 our $TAG = 'backup';
-our $mbuffer = '/opt/local/bin/mbuffer -q -s 128k -m 1G';
-our $pv = 'pv -rtab';
+our $MBUFFER = '/opt/local/bin/mbuffer -q -s 128k -m 1G';
+our $PV = 'pv -rtab';
+our $SSH = 'ssh -T -c aes128-ctr -o Compression=no -x';
 
 sub checkDatasetExists {
     my ($fs) = @_;
@@ -40,7 +41,7 @@ sub checkDatasetExists {
 
 sub checkRemoteDatasetExists {
     my ($server, $fs) = @_;
-    system("ssh $server zfs list $fs >/dev/null 2>&1") and do {
+    system("$SSH $server zfs list $fs >/dev/null 2>&1") and do {
         return 0;
     };
     return 1;
@@ -76,7 +77,7 @@ sub getLastSnap {
 
 sub getLastRemoteSnap {
     my ($server, $fs) = @_;
-    my $snap = `ssh $server zfs list -t snapshot -rHo name $fs |
+    my $snap = `$SSH $server zfs list -t snapshot -rHo name $fs |
         sed -n "/\@${TAG}_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/"p |
         sort | tail -1`;
     chomp $snap;
@@ -95,7 +96,7 @@ sub getLastSequence {
 # Get space available on remote machine
 sub getRemoteSpace {
     my ($server) = @_;
-    my $space = `ssh $server zfs get -Ho value available zones`;
+    my $space = `$SSH $server zfs get -Ho value available zones`;
     chomp $space;
     return $space;
 }
@@ -137,7 +138,7 @@ sub sendFull {
     # -e: generate a more compact stream by using WRITE_EMBEDDED records
     # -c: generate a more compact stream by using compressed WRITE records
     print " \e[92m*\e[m sending \e[35m$snapshot\e[m ($dataset_size)\n";
-    system("zfs send -Rpec $snapshot | $mbuffer | $pv | ssh $server \"$mbuffer | zfs recv $fs\"") and do {
+    system("zfs send -Rpec $snapshot | $MBUFFER | $PV | $SSH $server \"$MBUFFER | zfs recv $fs\"") and do {
         print " \e[31m* Error\e[m: can't send \e[35m$snapshot\e[m, aborting\n";
         exit 1;
     };
@@ -150,7 +151,7 @@ sub sendIncrement {
     my $snapshot_size = `zfs send -nvI $source $target | tail -1 | sed 's/.* //g'`;
     chomp $snapshot_size;
 
-    system("ssh $server zfs rollback -r $source") and do {
+    system("$SSH $server zfs rollback -r $source") and do {
         print " \e[31m* Error\e[m: can't rollback \e[35m$source\e[m, aborting\n";
         exit 1;
     };
@@ -158,7 +159,7 @@ sub sendIncrement {
     # -p: include the dataset's properties in the stream.
     # -i: generate an incremental stream from the first snapshot to the second snapshot
     print " \e[92m*\e[m sending \e[35m$source\e[m increments ($snapshot_size)\n";
-    system("zfs send -pi $source $target | $mbuffer | $pv | ssh $server \"$mbuffer | zfs recv $fs\"") and do {
+    system("zfs send -pi $source $target | $MBUFFER | $PV | $SSH $server \"$MBUFFER | zfs recv $fs\"") and do {
         print " \e[31m* Error\e[m: can't send \e[35m$source\e[m, aborting\n";
         exit 1;
     };
@@ -176,7 +177,7 @@ sub renameDataset {
 sub renameRemoteDataset {
     my ($server, $oldName, $newName) = @_;
     print " \e[92m*\e[m ranaming remote snapshot \e[35m$oldName\e[m to \e[35m$newName\e[m\n";
-    system("ssh $server zfs rename $oldName $newName") and do {
+    system("$SSH $server zfs rename $oldName $newName") and do {
         print " \e[31m* Error\e[m: can't rename remote dataset \e[35m$oldName\e[m, aborting\n";
         exit 1;
     };
@@ -201,7 +202,7 @@ sub destroyDataset {
 
 sub destroyRemoteDataset {
     my ($server, $fs) = @_;
-    system("ssh $server zfs destroy -r $fs") and do {
+    system("$SSH $server zfs destroy -r $fs") and do {
         print " \e[31m* Error\e[m: can't destroy target dataset \e[35m$fs\e[m, aborting\n";
         exit 1;
     };

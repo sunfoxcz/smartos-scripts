@@ -30,6 +30,7 @@ my $DEST_PATH = "zones/backup/$SRC_HOST";
 
 my $MBUFFER = '/opt/local/bin/mbuffer -q -s 128k -m 1G';
 my $PV = '/opt/local/bin/pv';
+my $SSH = 'ssh -T -c aes128-ctr -o Compression=no -x';
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Parse command line options
@@ -69,7 +70,7 @@ sub sendInitial {
 
     print colorize(" <blue>*</blue> sending to $dest_host:$dest_fs ($dataset_size)\n");
     system("zfs send -Rpec $source_fs\@$snapshot | $MBUFFER | $PROGRESS |
-        ssh $dest_host \"$MBUFFER | zfs recv -Fu $dest_fs\"");
+        $SSH $dest_host \"$MBUFFER | zfs recv -Fu $dest_fs\"");
 }
 
 # -I: sends all intermediary snapshots
@@ -80,7 +81,7 @@ sub sendIncremental {
 
     print colorize(" <blue>*</blue> sending to $dest_host:$dest_fs ($snapshot_size)\n");
     system("zfs send -RpecI $source_fs\@$source_snap_from $source_fs\@$source_snap_to | $MBUFFER | $PROGRESS |
-        ssh $dest_host \"$MBUFFER | zfs recv -Fu $dest_fs\"");
+        $SSH $dest_host \"$MBUFFER | zfs recv -Fu $dest_fs\"");
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -90,9 +91,9 @@ sub sendIncremental {
 my $startTime = localtime->strftime('%Y-%m-%d %H:%M:%S');
 print "-- starting at $startTime\n";
 
-if (system("ssh $DEST_HOST zfs list -Ho name $DEST_PATH >/dev/null 2>&1")) {
+if (system("$SSH $DEST_HOST zfs list -Ho name $DEST_PATH >/dev/null 2>&1")) {
     print colorize(" <red>*</red> $DEST_PATH doesn't exist, creating\n");
-    system("ssh $DEST_HOST zfs create $DEST_PATH");
+    system("$SSH $DEST_HOST zfs create $DEST_PATH");
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -112,7 +113,7 @@ chomp @zones;
 # Try to get remote dataset list
 # ----------------------------------------------------------------------------------------------------------------------
 
-my @remotes= `ssh $DEST_HOST zfs list -rHo name $DEST_PATH`;
+my @remotes= `$SSH $DEST_HOST zfs list -rHo name $DEST_PATH`;
 if ($? ne 0) {
     print colorize(" <red>*</red> can't get remotes for $DEST_PATH, aborting\n");
     exit 1;
@@ -140,7 +141,7 @@ for my $uuid (@zones) {
 
         if (ZFS::checkRemoteDatasetExists($DEST_HOST, "$DEST_PATH/$alias")) {
             print colorize(" <red>*</red> deleting remote backup $DEST_PATH/$alias\n");
-            system("ssh $DEST_HOST zfs destroy -r $DEST_PATH/$alias 2>/dev/null");
+            system("$SSH $DEST_HOST zfs destroy -r $DEST_PATH/$alias 2>/dev/null");
         }
 
         my @all_snaps = ZFS::getAllSnaps($zfs_filesystem);
@@ -153,7 +154,7 @@ for my $uuid (@zones) {
             my $diskSuffix = substr($disk, rindex($disk, '-') + 1);
             if (ZFS::checkRemoteDatasetExists($DEST_HOST, "$DEST_PATH/$alias-$diskSuffix")) {
                 print colorize(" <red>*</red> deleting remote backup $DEST_PATH/$alias-$diskSuffix\n");
-                system("ssh $DEST_HOST zfs destroy -r $DEST_PATH/$alias-$diskSuffix");
+                system("$SSH $DEST_HOST zfs destroy -r $DEST_PATH/$alias-$diskSuffix");
             }
 
             my @all_snaps = ZFS::getAllSnaps($disk);
