@@ -110,12 +110,12 @@ for my $uuid (@zones) {
     if ($verbose) {
         print colorize(" <blue>*</blue> $zfs_filesystem\@$snapName\n");
     }
-    system("$ZFS snapshot $zfs_filesystem\@$snapName");
+    system("$ZFS snapshot -r $zfs_filesystem\@$snapName");
     for my $disk (@disks) {
         if ($verbose) {
             print colorize(" <blue>*</blue> $disk\@$snapName\n");
         }
-        system("zfs snapshot $disk\@$snapName");
+        system("zfs snapshot -r $disk\@$snapName");
     }
 
     chomp(my $backupRunning = `ps ax | grep "[b]ackup_zfs\.pl"`);
@@ -130,7 +130,7 @@ for my $uuid (@zones) {
             if ($verbose) {
                 print colorize(" <blue>*</blue> $snapshot\n");
             }
-            system("zfs destroy $snapshot") and do {
+            system("zfs destroy -r $snapshot") and do {
                 print " \e[31m* Error\e[m: can't destroy snapshot, aborting\n";
                 exit 1;
             };
@@ -142,7 +142,7 @@ for my $uuid (@zones) {
                 if ($verbose) {
                     print colorize(" <blue>*</blue> $snapshot\n");
                 }
-                system("zfs destroy $snapshot") and do {
+                system("zfs destroy -r $snapshot") and do {
                     print " \e[31m* Error\e[m: can't destroy snapshot, aborting\n";
                     exit 1;
                 };
