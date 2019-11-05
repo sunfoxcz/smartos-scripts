@@ -27,8 +27,19 @@ our @EXPORT_OK   = qw(
 our %EXPORT_TAGS = ('all' => \@EXPORT_OK);
 
 our $TAG = 'backup';
+# -q: Be quiet
+# -s: Block size, 128k is default for ZFS
+# -m: Buffer size
 our $MBUFFER = '/opt/local/bin/mbuffer -q -s 128k -m 1G';
+# -r: Display the current rate of data transfer
+# -t: Display the total elapsed time
+# -a: Display the average rate of data transfer so far
+# -b: Display the total amount of data transferred so far
 our $PV = 'pv -rtab';
+# -T: Disable pseudo-terminal allocation
+# -c: Selects the cipher specification for encrypting the session
+# -o: Set options
+# -x: Disable X11 forwarding
 our $SSH = 'ssh -T -c aes128-ctr -o Compression=no -x';
 
 sub checkDatasetExists {

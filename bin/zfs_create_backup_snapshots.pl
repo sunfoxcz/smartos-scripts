@@ -130,7 +130,7 @@ for my $uuid (@zones) {
             if ($verbose) {
                 print colorize(" <blue>*</blue> $snapshot\n");
             }
-            system("zfs destroy -r $snapshot") and do {
+            system("zfs destroy $snapshot") and do {
                 print " \e[31m* Error\e[m: can't destroy snapshot, aborting\n";
                 exit 1;
             };
@@ -142,7 +142,7 @@ for my $uuid (@zones) {
                 if ($verbose) {
                     print colorize(" <blue>*</blue> $snapshot\n");
                 }
-                system("zfs destroy -r $snapshot") and do {
+                system("zfs destroy $snapshot") and do {
                     print " \e[31m* Error\e[m: can't destroy snapshot, aborting\n";
                     exit 1;
                 };
