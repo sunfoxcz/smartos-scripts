@@ -170,7 +170,7 @@ sub sendIncrement {
     # -p: include the dataset's properties in the stream.
     # -i: generate an incremental stream from the first snapshot to the second snapshot
     print " \e[92m*\e[m sending \e[35m$source\e[m increments ($snapshot_size)\n";
-    system("zfs send -pi $source $target | $MBUFFER | $PV | $SSH $server \"$MBUFFER | zfs recv $fs\"") and do {
+    system("zfs send -Rpeci $source $target | $MBUFFER | $PV | $SSH $server \"$MBUFFER | zfs recv $fs\"") and do {
         print " \e[31m* Error\e[m: can't send \e[35m$source\e[m, aborting\n";
         exit 1;
     };
@@ -179,7 +179,7 @@ sub sendIncrement {
 sub renameDataset {
     my ($oldName, $newName) = @_;
     print " \e[92m*\e[m ranaming snapshot \e[35m$oldName\e[m to \e[35m$newName\e[m\n";
-    system("zfs rename $oldName $newName") and do {
+    system("zfs rename -r $oldName $newName") and do {
         print " \e[31m* Error\e[m: can't rename dataset \e[35m$oldName\e[m, aborting\n";
         exit 1;
     };
@@ -188,7 +188,7 @@ sub renameDataset {
 sub renameRemoteDataset {
     my ($server, $oldName, $newName) = @_;
     print " \e[92m*\e[m ranaming remote snapshot \e[35m$oldName\e[m to \e[35m$newName\e[m\n";
-    system("$SSH $server zfs rename $oldName $newName") and do {
+    system("$SSH $server zfs rename -r $oldName $newName") and do {
         print " \e[31m* Error\e[m: can't rename remote dataset \e[35m$oldName\e[m, aborting\n";
         exit 1;
     };
