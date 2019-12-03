@@ -238,6 +238,8 @@ for my $uuid (@zones) {
             sendIncremental($disk, $last_remote_snap, $next_snap, $DEST_HOST, "$DEST_PATH/$alias-$diskSuffix");
         }
     }
+
+    system("scp -q /etc/zones/$uuid.xml $DEST_HOST:/backup/xml/");
 }
 
 my $endTime = localtime->strftime('%Y-%m-%d %H:%M:%S');
