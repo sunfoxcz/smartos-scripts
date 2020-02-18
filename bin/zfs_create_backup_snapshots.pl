@@ -118,9 +118,9 @@ for my $uuid (@zones) {
         system("zfs snapshot -r $disk\@$snapName");
     }
 
-    chomp(my $backupRunning = `ps ax | grep "[b]ackup_zfs\.pl"`);
-    chomp(my $migrateRunning = `ps ax | grep "[m]igrate_vm\.pl"`);
-    if ($backupRunning eq '' && $migrateRunning eq '') {
+    chomp(my $backupRunning = `pgrep -f backup_zfs\.pl`);
+    chomp(my $migrateRunning = `pgrep -f migrate_vm\.pl`);
+    if ($backupRunning ne '' && backupRunning ne "$$" && $migrateRunning ne '' && $migrateRunning ne "$$") {
         if ($verbose) {
             print colorize("<light_green>Deleting old snapshots for VM</light_green> $alias\n");
         }
