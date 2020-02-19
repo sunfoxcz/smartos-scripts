@@ -56,7 +56,7 @@ if ($progressFlag) {
 # ----------------------------------------------------------------------------------------------------------------------
 
 chomp(my $backupRunning = `pgrep -f backup_zfs\.pl`);
-if ($backupRunning ne '' and $backupRunning ne "$$") {
+if ($backupRunning ne "$$") {
     print colorize("<red>$0</red> already running, exiting\n");
     exit 1;
 }

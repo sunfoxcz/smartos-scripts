@@ -36,8 +36,8 @@ my $remoteHostname = substr($destination, 0, index($destination, '.'));
 # ----------------------------------------------------------------------------------------------------------------------
 
 chomp(my $migrateRunning = `pgrep -f migrate_vm\.pl`);
-if ($migrateRunning ne '' and $migrateRunning ne '$$') {
-    print "migrate_vm.pl already running, aborting\n";
+if ($migrateRunning ne "$$") {
+    print colorize("<red>$0</red> already running, exiting\n");
     exit 1;
 }
 
