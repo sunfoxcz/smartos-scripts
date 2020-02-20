@@ -120,7 +120,7 @@ for my $uuid (@zones) {
 
     chomp(my $backupRunning = `pgrep -f backup_zfs\.pl`);
     chomp(my $migrateRunning = `pgrep -f migrate_vm\.pl`);
-    if ($backupRunning ne '' && $migrateRunning ne '') {
+    if ($backupRunning eq '' && $migrateRunning eq '') {
         if ($verbose) {
             print colorize("<light_green>Deleting old snapshots for VM</light_green> $alias\n");
         }
