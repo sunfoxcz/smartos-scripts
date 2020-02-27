@@ -15,11 +15,14 @@ our @EXPORT_OK   = qw(
     getOrigin
     getAllSnaps
     getLastSnap
+    getLastRemoteSnap
     getLastSequence
     getRemoteSpace
     createMigrateSnapshot
     sendFull
     sendIncrement
+    renameDataset
+    renameRemoteDataset
     destroyMigrateSnapshot
     destroyDataset
     destroyRemoteDataset
