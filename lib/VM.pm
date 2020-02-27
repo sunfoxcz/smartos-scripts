@@ -10,12 +10,16 @@ our $VERSION     = 1.00;
 our @ISA         = qw(Exporter);
 our @EXPORT      = ();
 our @EXPORT_OK   = qw(
+    isUUID
+    checkRemoteImageAvailable
     getUuidByAlias
     getData
     getState
     getRemoteData
     parseProperty
     parseDatasets
+    parseImageNameFromDataset
+    importImage
     copyConfig
     stop
     remoteStart
