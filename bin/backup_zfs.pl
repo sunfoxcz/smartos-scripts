@@ -87,24 +87,24 @@ sub sendInitial {
 # ZFS PRE-SEND (for counting send size)
 # -n: Do a dry-run
 # -v: Print verbose information about the stream package generated
-# -I: sends all intermediary snapshots
+# -i: Generate an incremental stream from the first to the second snapshot
 # ZFS SEND
 # -R: replicate recursively
 # -p: include the dataset's properties in the stream (implicit for -R)
 # -e: generate a more compact stream by using WRITE_EMBEDDED records
 # -c: generate a more compact stream by using compressed WRITE records
 # -L: Generate a stream which may contain blocks larger than 128KB
-# -I: sends all intermediary snapshots
+# -i: Generate an incremental stream from the first to the second snapshot
 # ZFS RECEIVE
 # -F: force a rollback of the file system to the most recent snapshot
 # -u: do not mount received filesystem
 sub sendIncremental {
     my ($source_fs, $source_snap_from, $source_snap_to, $dest_host, $dest_fs) = @_;
-    my $snapshot_size = `zfs send -nvI $source_fs\@$source_snap_from $source_fs\@$source_snap_to | tail -1 | sed 's/.* //g'`;
+    my $snapshot_size = `zfs send -nvi $source_fs\@$source_snap_from $source_fs\@$source_snap_to | tail -1 | sed 's/.* //g'`;
     chomp $snapshot_size;
 
     print colorize(" <blue>*</blue> sending to $dest_host:$dest_fs ($snapshot_size)\n");
-    system("zfs send -RpecLI $source_fs\@$source_snap_from $source_fs\@$source_snap_to | $MBUFFER | $PROGRESS |
+    system("zfs send -RpecLi $source_fs\@$source_snap_from $source_fs\@$source_snap_to | $MBUFFER | $PROGRESS |
         $SSH $dest_host \"$MBUFFER | zfs recv -Fu $dest_fs\"");
 }
 
