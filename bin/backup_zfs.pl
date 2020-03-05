@@ -65,6 +65,9 @@ if ($backupRunning ne "$$") {
 # Remote functions
 # ----------------------------------------------------------------------------------------------------------------------
 
+# ZFS PRE-SEND (for counting send size)
+# -n: Do a dry-run
+# -v: Print verbose information about the stream package generated
 # ZFS SEND
 # -R: replicate recursively
 # -p: include the dataset's properties in the stream (implicit for -R)
@@ -76,7 +79,7 @@ if ($backupRunning ne "$$") {
 # -u: do not mount received filesystem
 sub sendInitial {
     my ($source_fs, $snapshot, $dest_host, $dest_fs) = @_;
-    my $dataset_size = `zfs get -Ho value used $source_fs`;
+    my $dataset_size = `zfs send -RpecLnv $source_fs\@$snapshot | tail -1 | sed 's/.* //g'`;
     chomp $dataset_size;
 
     print colorize(" <blue>*</blue> sending to $dest_host:$dest_fs ($dataset_size)\n");
@@ -87,7 +90,6 @@ sub sendInitial {
 # ZFS PRE-SEND (for counting send size)
 # -n: Do a dry-run
 # -v: Print verbose information about the stream package generated
-# -i: Generate an incremental stream from the first to the second snapshot
 # ZFS SEND
 # -R: replicate recursively
 # -p: include the dataset's properties in the stream (implicit for -R)
@@ -100,7 +102,7 @@ sub sendInitial {
 # -u: do not mount received filesystem
 sub sendIncremental {
     my ($source_fs, $source_snap_from, $source_snap_to, $dest_host, $dest_fs) = @_;
-    my $snapshot_size = `zfs send -nvi $source_fs\@$source_snap_from $source_fs\@$source_snap_to | tail -1 | sed 's/.* //g'`;
+    my $snapshot_size = `zfs send -RpecLinv $source_fs\@$source_snap_from $source_fs\@$source_snap_to | tail -1 | sed 's/.* //g'`;
     chomp $snapshot_size;
 
     print colorize(" <blue>*</blue> sending to $dest_host:$dest_fs ($snapshot_size)\n");

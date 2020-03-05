@@ -143,7 +143,7 @@ sub createMigrateSnapshot {
 sub sendFull {
     my ($server, $fs, $snapshotName) = @_;
     my $snapshot = "$fs\@$snapshotName";
-    my $dataset_size = `zfs get -Ho value used $fs`;
+    my $dataset_size = `zfs send -RpecLnv $snapshot | tail -1 | sed 's/.* //g'`;
     chomp $dataset_size;
 
     # ZFS SEND
@@ -163,7 +163,7 @@ sub sendIncrement {
     my ($server, $fs, $sourceSnapshot, $targetSnapshot) = @_;
     my $source = "$fs\@$sourceSnapshot";
     my $target = "$fs\@$targetSnapshot";
-    my $snapshot_size = `zfs send -nvI $source $target | tail -1 | sed 's/.* //g'`;
+    my $snapshot_size = `zfs send -RpecLinv $source $target | tail -1 | sed 's/.* //g'`;
     chomp $snapshot_size;
 
     system("$SSH $server zfs rollback -r $source") and do {
