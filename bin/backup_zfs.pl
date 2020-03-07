@@ -102,7 +102,7 @@ sub sendInitial {
 # -u: do not mount received filesystem
 sub sendIncremental {
     my ($source_fs, $source_snap_from, $source_snap_to, $dest_host, $dest_fs) = @_;
-    my $snapshot_size = `zfs send -RpecLinv $source_fs\@$source_snap_from $source_fs\@$source_snap_to | tail -1 | sed 's/.* //g'`;
+    my $snapshot_size = `zfs send -RpecLnvi $source_fs\@$source_snap_from $source_fs\@$source_snap_to | tail -1 | sed 's/.* //g'`;
     chomp $snapshot_size;
 
     print colorize(" <blue>*</blue> sending to $dest_host:$dest_fs ($snapshot_size)\n");

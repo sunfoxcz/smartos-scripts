@@ -163,7 +163,7 @@ sub sendIncrement {
     my ($server, $fs, $sourceSnapshot, $targetSnapshot) = @_;
     my $source = "$fs\@$sourceSnapshot";
     my $target = "$fs\@$targetSnapshot";
-    my $snapshot_size = `zfs send -RpecLinv $source $target | tail -1 | sed 's/.* //g'`;
+    my $snapshot_size = `zfs send -RpecLnvi $source $target | tail -1 | sed 's/.* //g'`;
     chomp $snapshot_size;
 
     system("$SSH $server zfs rollback -r $source") and do {
