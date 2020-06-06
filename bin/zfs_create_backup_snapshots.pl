@@ -91,7 +91,7 @@ sub findExpiredSnapshots {
 # ----------------------------------------------------------------------------------------------------------------------
 
 for my $uuid (@zones) {
-    my $zone_data = `vmadm get $uuid`;
+    my $zone_data = `vmadm get $uuid | json -e 'this.customer_metadata=undefined'`;
     my $alias = `echo '$zone_data' | json alias`;
     my $zfs_filesystem = `echo '$zone_data' | json zfs_filesystem`;
     my @disks = `echo '$zone_data' | json disks | json -a zfs_filesystem`;
