@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Getopt::Long;
+use JSON::PP;
 use Pod::Usage;
 use Time::Piece;
 use Time::Seconds;
@@ -16,7 +17,6 @@ use Terminal qw(colorize);
 # Binaries and variables
 # ----------------------------------------------------------------------------------------------------------------------
 
-my $ZFS = '/usr/sbin/zfs';
 my $DATE_PATTERN = '^20[0-9][0-9]-[01][0-9]-[0-3][0-9]_[0-2][0-9]\.[0-5][0-9]\.[0-5][0-9]$';
 my $TTL_PATTERN = '^([0-9]{1})([wd]+)$';
 my $TIME_FORMAT = '%Y-%m-%d_%H.%M.%S';
@@ -55,7 +55,7 @@ sub findExpiredSnapshots {
     my ($fs) = @_;
     my @expired = ();
 
-    chomp(my @snapshots = `$ZFS list -Ho name -t snapshot -r $fs`);
+    chomp(my @snapshots = `zfs list -Ho name -t snapshot -r $fs`);
     for my $snapshot (@snapshots) {
         my $snapshotName = substr($snapshot, rindex($snapshot, '@') + 1);
         my ($snapDate, $ttl) = split /--/, $snapshotName;
@@ -81,14 +81,11 @@ sub findExpiredSnapshots {
 # ----------------------------------------------------------------------------------------------------------------------
 
 for my $uuid (@zones) {
-    my $zone_data = `vmadm get $uuid | json -e 'this.customer_metadata=undefined'`;
-    my $alias = `echo '$zone_data' | json alias`;
-    my $zfs_filesystem = `echo '$zone_data' | json zfs_filesystem`;
-    my @disks = `echo '$zone_data' | json disks | json -a zfs_filesystem`;
-
-    $alias =~ s/\s+$//;
-    $zfs_filesystem =~ s/\s+$//;
-    chomp @disks;
+    my $zone_data = `vmadm get $uuid`;
+    $zone_data = decode_json $zone_data;
+    my $alias = $zone_data->{alias};
+    my $zfs_filesystem = $zone_data->{zfs_filesystem};
+    my @disks = @{$zone_data->{disks}};
 
     chomp(my $backupRunning = `pgrep -f backup_zfs\.pl`);
     chomp(my $migrateRunning = `pgrep -f migrate_vm\.pl`);
@@ -109,7 +106,8 @@ for my $uuid (@zones) {
         }
 
         for my $disk (@disks) {
-            my @expired = findExpiredSnapshots($disk);
+            my $disk_zfs_filesystem = $disk->{zfs_filesystem};
+            my @expired = findExpiredSnapshots($disk_zfs_filesystem);
             for my $snapshot (@expired) {
                 if ($verbose) {
                     print colorize(" <blue>*</blue> $snapshot\n");
