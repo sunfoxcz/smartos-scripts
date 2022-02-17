@@ -171,14 +171,17 @@ sub sendIncrement {
         exit 1;
     };
 
+    # ZFS SEND:
     # -R: replicate recursively
     # -p: include the dataset's properties in the stream (implicit for -R)
     # -e: generate a more compact stream by using WRITE_EMBEDDED records
     # -c: generate a more compact stream by using compressed WRITE records
     # -L: Generate a stream which may contain blocks larger than 128KB
     # -i: generate an incremental stream from the first snapshot to the second snapshot
+    # ZFS RECEIVE:
+    # -F: Force a rollback of the file system to the most recent snapshot
     print " \e[92m*\e[m sending \e[35m$source\e[m increments ($snapshot_size)\n";
-    system("zfs send -RpecLi $source $target | $MBUFFER | $PV | $SSH $server \"$MBUFFER | zfs recv $fs\"") and do {
+    system("zfs send -RpecLi $source $target | $MBUFFER | $PV | $SSH $server \"$MBUFFER | zfs recv -F $fs\"") and do {
         print " \e[31m* Error\e[m: can't send \e[35m$source\e[m, aborting\n";
         exit 1;
     };
